@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PanoLearn — Privacy &amp; data</title>
+<style>body{max-width:760px;margin:48px auto;padding:0 24px;background:#f7f9f7;color:#1c2b27;font:16px/1.7 system-ui,sans-serif}h1,h2{line-height:1.25}h1{font-size:32px}h2{font-size:21px;margin-top:30px}a{color:#176b50}.note{background:#e8f1eb;padding:18px;border-radius:10px}small{color:#52665c}</style></head>
+<body>
+<h1>PanoLearn: Privacy &amp; data</h1>
+<p><small>Last updated September 13, 2026 · Applies to extension version 1.9.0</small></p>
+<p class="note">Sign in with Google to generate study notes. When you click Generate, PanoLearn sends your selected transcript text, lecture titles and intermediate notes through its Cloudflare-hosted service to OpenAI. The publisher supplies the OpenAI API key and pays the API usage costs. Per-user and service-wide usage limits apply.</p>
+<h2>Information the extension handles</h2>
+<ul>
+<li><strong>Lecture content:</strong> available caption/transcript text, candidate caption and player-metadata responses, text you paste, lecture titles and source page URLs on supported Canvas and Panopto pages. Captured material may contain personal information if it appears in the source.</li>
+<li><strong>Google sign-in:</strong> your Google account identifier, verified email address and short-lived identity token. PanoLearn requests only identity and email access, not Gmail, Drive or your Google password.</li>
+<li><strong>Saved lectures and generated notes:</strong> transcripts you choose to save, their titles and source URLs, and generated study materials and PDF export data.</li>
+</ul>
+<h2>How it is used</h2>
+<p>PanoLearn reads candidate transcript responses and loaded captions on supported pages to offer transcript selection, source previews and study notes. Captures are held in the page's memory. This does not upload the lecture to the service or OpenAI until you request generation. PanoLearn does not record audio or video.</p>
+<p>Generation may involve several OpenAI requests for evidence extraction, source processing, time-range recovery and writing. Transcript text, selected lecture titles and generated intermediate notes may be sent in those requests. Your identity token is sent over HTTPS to the PanoLearn service to verify access. The service uses its server-side API key to authorize OpenAI requests; this key is not supplied to the extension. The extension does not intentionally send your Canvas/Panopto password, login cookies or unrelated browsing history to OpenAI.</p>
+<p>Source page URLs are used locally to identify saved lectures and create video time links. URLs or personal details contained inside a transcript or lecture title can also be included in the source text sent for generation.</p>
+<h2>Storage and deletion</h2>
+<p>Lectures you explicitly save use Chrome’s local extension storage, not Chrome Sync. Your sign-in token and email use Chrome session storage restricted to trusted extension pages. They are removed on sign-out or when the browser session ends; expired tokens require signing in again. The service does not retain lecture text or generated notes in its application database and has application observability disabled. Cloudflare still processes network traffic under its own policies.</p>
+<ul>
+<li>Use <strong>Sign out</strong> in the popup to remove the local session. This does not revoke an already issued Google token, which remains valid until its expiry (normally about one hour). Successful sign-in removes obsolete API keys saved by previous extension versions.</li>
+<li>The service stores a hashed account identifier with daily request/character counters and brief concurrency leases to enforce limits. Sign-in throttling stores a daily salted hash of the connecting IP address. These application records expire within 48 hours; no permanent PanoLearn account profile is created.</li>
+<li>Remove individual saved lectures using <strong>Remove</strong> in the lecture list.</li>
+<li>Transient captures and generated notes remain in page memory until the page is refreshed or closed.</li>
+<li>PDF export data is temporarily placed in Chrome session storage. The print page removes its entry when loaded. If an export is abandoned, an entry may remain until the browser session ends.</li>
+<li>Uninstalling the extension removes its local extension storage. Exported PDFs are files you control and must delete separately. Removing local data does not delete data already processed by OpenAI.</li>
+</ul>
+<h2>OpenAI processing</h2>
+<p>Requests use OpenAI's API with <code>store: false</code>. This setting is not a promise of zero retention or zero logging by OpenAI. OpenAI's own terms, account configuration and data policies govern its processing. See <a href="https://platform.openai.com/docs/guides/your-data">OpenAI API data controls</a> and <a href="https://openai.com/policies/privacy-policy/">OpenAI's privacy policy</a>.</p>
+<h2>Google and hosting</h2>
+<p>Google handles authentication and Cloudflare hosts the PanoLearn service. See <a href="https://policies.google.com/privacy">Google’s privacy policy</a> and <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare’s privacy policy</a>. These providers have their own processing and retention practices.</p>
+<h2>Limited use</h2>
+<p>PanoLearn uses and transfers user data only to provide its disclosed study-note features. The extension does not sell user data, use it for personalized advertising, or include analytics or tracking SDKs. Its use of information follows the Chrome Web Store User Data Policy, including the Limited Use requirements.</p>
+<h2>Your choices</h2>
+<p>You can inspect the captured transcript, select a different track, paste source text, remove saved lectures or sign out, or choose not to generate. Only submit content you are authorized to share with PanoLearn, Cloudflare and OpenAI. Generated notes and timestamps may contain errors; verify important details against the lecture.</p>
+<h2>Contact and updates</h2>
+<p>For support or privacy questions, use the publisher contact information on PanoLearn's Chrome Web Store listing. This policy may be updated with the extension's data practices. Material changes will be disclosed in the extension or store listing as appropriate.</p>
+</body></html>

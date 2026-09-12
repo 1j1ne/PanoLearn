@@ -1,0 +1,27 @@
+@page { size: auto; margin: 16mm; }
+body { margin: 0; padding: 24px; background: #eef2ef; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.print-toolbar { display: flex; gap: 16px; align-items: center; max-width: 850px; margin: 0 auto 20px; font-size: 14px; }
+.print-toolbar button { padding: 10px 18px; border: 0; border-radius: 7px; background: #176b50; color: white; cursor: pointer; }
+#pl-panel { position: static !important; transform: none !important; width: auto; max-width: 850px; height: auto; min-height: 0; margin: auto; padding: 28px; overflow: visible; background: white; box-shadow: none; border: 0; }
+#pl-panel .pl-section-body, #pl-panel .pl-concept-body { display: block; }
+#pl-panel .pl-step { margin: 8px 0; }
+#pl-panel .pl-section, #pl-panel .pl-concept { overflow: visible; }
+#pl-panel .pl-section-header, #pl-panel .pl-concept-header { break-after: avoid; cursor: default; }
+#pl-panel .pl-flashcard-inner { display: block; transform: none; min-height: 0; }
+#pl-panel .pl-flashcard-front, #pl-panel .pl-flashcard-back { position: static; display: block; transform: none; backface-visibility: visible; min-height: 0; padding: 10px; }
+#pl-panel .pl-flashcard-front::before { content: 'Question: '; font-weight: bold; }
+#pl-panel .pl-flashcard-back::before { content: 'Answer: '; font-weight: bold; }
+#pl-panel .pl-flashcard, #pl-panel .pl-flashcard-wrapper { height: auto; perspective: none; }
+#pl-panel .pl-section-chevron, #pl-panel .pl-concept-chevron, #pl-panel .pl-flashcard-hint, #pl-panel .pl-exam-reveal-btn { display: none; }
+#pl-panel .pl-worked-example, #pl-panel .pl-flashcard-wrapper, #pl-panel .pl-exam-item { break-inside: avoid; }
+#pl-panel .pl-summary-table-wrap, #pl-panel .pl-equation-block { overflow: visible; }
+#pl-panel .pl-summary-table { table-layout: fixed; }
+#pl-panel .pl-summary-table th, #pl-panel .pl-summary-table td { min-width: 0; overflow-wrap: anywhere; }
+#pl-panel thead { display: table-header-group; }
+#pl-panel h1, #pl-panel h3, #pl-panel .pl-summary-outline strong { break-after: avoid; }
+@media print {
+  body { padding: 0; background: white; }
+  .print-toolbar { display: none; }
+  #pl-panel { max-width: none; padding: 0; }
+  #pl-panel * { animation: none !important; transition: none !important; print-color-adjust: exact; }
+}
