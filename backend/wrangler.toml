@@ -1,4 +1,4 @@
-name = "panolearn-api"
+name = "panolearn"
 main = "src/worker.js"
 compatibility_date = "2026-09-01"
 
@@ -7,14 +7,14 @@ enabled = false
 
 [vars]
 EXTENSION_ID = "bmhhhinalnmeinpnplpdpealkpndcahg"
-GOOGLE_CLIENT_ID = ""
+GOOGLE_CLIENT_ID = "744508273482-0ikpdqb878ojtkonbscdlbcjin2ghsnb.apps.googleusercontent.com"
 # Launch limits count API requests, not complete summaries.
 USER_DAILY_REQUESTS = "40"
 GLOBAL_DAILY_REQUESTS = "300"
 USER_DAILY_INPUT_CHARS = "600000"
 GLOBAL_DAILY_INPUT_CHARS = "4000000"
-# Enable only after secrets and Google sign-in are configured.
-GENERATION_ENABLED = "false"
+# Matches the enabled production service. Set false to pause generation.
+GENERATION_ENABLED = "true"
 
 [[durable_objects.bindings]]
 name = "LIMITS"
