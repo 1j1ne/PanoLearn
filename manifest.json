@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PanoLearn \u2014 AI Study Notes for Canvas",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "description": "Detects Panopto videos on Canvas LMS and generates AI-powered study notes using OpenAI.",
   "permissions": [
     "storage",
@@ -10,7 +10,8 @@
   "host_permissions": [
     "https://*.instructure.com/*",
     "https://*.hosted.panopto.com/*",
-    "https://*.panopto.com/*"
+    "https://*.panopto.com/*",
+    "https://panolearn.yunchaei0701.workers.dev/*"
   ],
   "background": {
     "service_worker": "background.js"

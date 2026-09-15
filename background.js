@@ -53,29 +53,77 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   }
 });
 
+// One queue for this browser profile, shared by all lecture tabs and retries.
+let activeStudyRequests = 0;
+const pendingStudyRequests = [];
 async function callOpenAI(message) {
+  if (activeStudyRequests >= 3) await new Promise(resolve => pendingStudyRequests.push(resolve));
+  else activeStudyRequests++;
+  try { return await performStudyRequest(message); }
+  finally {
+    const next = pendingStudyRequests.shift();
+    if (next) next();
+    else activeStudyRequests--;
+  }
+}
+
+async function performStudyRequest(message) {
   if (typeof message.system !== 'string' || typeof message.prompt !== 'string' || message.prompt.length > 70000) {
     throw new Error('Invalid study request.');
   }
   studyResponseFormat(message.format); // Reject unknown formats before sending.
   const { token } = await requireSession();
-  const response = await fetch(serviceURL('/v1/study'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-    body: JSON.stringify({ system: message.system, prompt: message.prompt, format: message.format }),
-    signal: AbortSignal.timeout(180000)
-  });
-  if (!response.ok) {
+  const signal = AbortSignal.timeout(180000);
+  let response;
+  for (let attempt = 0; ; attempt++) {
+    response = await fetch(serviceURL('/v1/study'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ system: message.system, prompt: message.prompt, format: message.format }), signal
+    });
+    if (response.ok) break;
     if (response.status === 401) { await signOut(); throw new Error('Your session expired. Sign in with Google in the extension popup.'); }
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error?.message || 'HTTP ' + response.status);
+    const data = await response.json().catch(() => ({}));
+    const error = data.error || {};
+    const busy = response.status === 429 && (['USER_CONCURRENCY_LIMIT', 'SERVICE_CONCURRENCY_LIMIT'].includes(error.code) ||
+      error.message === 'Generation is busy. Wait for current notes to finish before retrying.');
+    // Only retry a rejected reservation: no OpenAI request has been dispatched.
+    // Quota limits, provider errors and malformed streams are never retried here.
+    if (!busy || attempt >= 15) throw new Error(error.message || 'HTTP ' + response.status);
+    await waitForStudySlot(signal);
   }
-  const reader = response.body.getReader();
+  return readStudyStream(response.body);
+}
+
+function waitForStudySlot(signal) {
+  return new Promise((resolve, reject) => {
+    const abort = () => { clearTimeout(timer); reject(new Error('Waiting for generation timed out. Please try again.')); };
+    const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, 2000);
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) abort();
+  });
+}
+
+async function readStudyStream(body) {
+  if (!body) throw new Error('The study service returned no response. Please try again.');
+  const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '', text = '', complete = false;
+  let dataLines = [];
   function process(line) {
-    if (!line.startsWith('data: ')) return;
-    const event = JSON.parse(line.slice(6));
+    line = line.replace(/\r$/, '');
+    if (line !== '') {
+      if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
+      return;
+    }
+    if (!dataLines.length) return;
+    const payload = dataLines.join('\n');
+    dataLines = [];
+    if (payload === '[DONE]') return;
+    let event;
+    try { event = JSON.parse(payload); }
+    catch { throw new Error('The study response was interrupted or damaged in transit. Please try again.'); }
+    if (!event || typeof event !== 'object') throw new Error('The study service returned an invalid response. Please try again.');
     if (event.type === 'error') throw new Error(event.message || 'Generation failed.');
     if (event.type === 'response.failed') throw new Error(event.response?.error?.message || 'Generation failed.');
     if (event.type === 'response.incomplete') {
@@ -85,7 +133,7 @@ async function callOpenAI(message) {
         : 'OpenAI could not complete this response. Please retry.');
     }
     if (event.type === 'response.refusal.done') throw new Error(event.refusal || 'OpenAI declined this request.');
-    if (event.type === 'response.output_text.delta') text += event.delta;
+    if (event.type === 'response.output_text.delta' && typeof event.delta === 'string') text += event.delta;
     if (event.type === 'response.completed') complete = true;
   }
   try {
@@ -97,7 +145,7 @@ async function callOpenAI(message) {
       lines.forEach(process);
       if (done) break;
     }
-    if (buffer.trim()) process(buffer);
+    if (buffer.trim() || dataLines.length) throw new Error('Connection interrupted before the study response finished. Please generate again.');
   } finally { await reader.cancel().catch(() => {}); }
   if (!complete) throw new Error('Connection interrupted. Please generate again.');
   if (!text) throw new Error('Empty response from OpenAI.');
