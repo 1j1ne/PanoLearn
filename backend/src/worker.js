@@ -4,7 +4,7 @@ import schemas from '../../study-schema.js';
 const googleKeys = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
 const json = (data, status = 200) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
 class HttpError extends Error {
-  constructor(status, message) { super(message); this.status = status; }
+  constructor(status, message, code) { super(message); this.status = status; this.code = code; }
 }
 const fail = (status, message) => { throw new HttpError(status, message); };
 
@@ -63,14 +63,17 @@ function limits(env) {
 }
 async function reserve(stub, data) {
   const response = await stub.fetch('https://limits/reserve', { method: 'POST', body: JSON.stringify(data) });
-  if (!response.ok) fail(429, (await response.json()).error.message);
+  if (!response.ok) {
+    const error = (await response.json()).error;
+    throw new HttpError(response.status, error.message, error.code);
+  }
 }
 
 export function createHandler({ verify = verifyGoogle, upstream = fetch } = {}) {
   return async function handle(request, env, ctx) {
     const origin = request.headers.get('Origin');
     const allowed = 'chrome-extension://' + env.EXTENSION_ID;
-    const headers = { 'Access-Control-Allow-Origin': allowed, 'Vary': 'Origin', 'Cache-Control': 'no-store',
+    const headers = { 'X-PanoLearn-Service-Version': '1.9.1', 'Access-Control-Allow-Origin': allowed, 'Vary': 'Origin', 'Cache-Control': 'no-store',
       'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type' };
     const withHeaders = response => {
       const result = new Response(response.body, response);
@@ -160,7 +163,7 @@ export function createHandler({ verify = verifyGoogle, upstream = fetch } = {}) 
       }
     } catch (error) {
       // Never return provider errors, credentials, transcripts or stack traces.
-      return withHeaders(json({ error: { message: error instanceof HttpError ? error.message : 'PanoLearn is temporarily unavailable. Please try again.' } }, error instanceof HttpError ? error.status : 503));
+      return withHeaders(json({ error: { message: error instanceof HttpError ? error.message : 'PanoLearn is temporarily unavailable. Please try again.', ...(error.code ? { code: error.code } : {}) } }, error instanceof HttpError ? error.status : 503));
     }
   };
 }
@@ -205,7 +208,8 @@ export class UsageLimits {
         if (lease.until <= now) await tx.delete(key);
         else { total++; if (lease.subject === body.subject) personal++; }
       }
-      if (personal >= 3 || total >= 20) return json({ error: { message: 'Generation is busy. Wait for current notes to finish before retrying.' } }, 429);
+      if (personal >= 3) return json({ error: { code: 'USER_CONCURRENCY_LIMIT', message: 'Your account has another generation running. Wait for it to finish, then retry. If you closed that lecture, its requests expire within three minutes.' } }, 429);
+      if (total >= 20) return json({ error: { code: 'SERVICE_CONCURRENCY_LIMIT', message: 'PanoLearn is serving other students right now. Please try again shortly.' } }, 429);
       if (user.requests >= setting(this.env, 'USER_DAILY_REQUESTS', 40) || user.chars + body.chars > setting(this.env, 'USER_DAILY_INPUT_CHARS', 600000)) {
         return json({ error: { message: 'You have reached your daily study limit. It resets at midnight UTC.' } }, 429);
       }
