@@ -113,7 +113,15 @@ export function createHandler({ verify = verifyGoogle, upstream = fetch } = {}) 
       const stub = limits(env), lease = crypto.randomUUID();
       const subject = await digest(user.sub);
       await reserve(stub, { kind: 'study', subject, lease, chars: body.instructions.length + body.input.length });
-      const release = () => stub.fetch('https://limits/release', { method: 'POST', body: JSON.stringify({ lease }) });
+      let released = false;
+      const release = async () => {
+        if (released) return;
+        const result = await stub.fetch('https://limits/release', {
+          method: 'POST', body: JSON.stringify({ lease }), signal: AbortSignal.timeout(5000)
+        });
+        if (!result.ok) throw new Error('Could not release generation slot.');
+        released = true;
+      };
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 170000);
       let streaming = false;
@@ -128,10 +136,23 @@ export function createHandler({ verify = verifyGoogle, upstream = fetch } = {}) 
             ? 'The study service is busy. Please try again later.' : 'Generation could not finish. Please try again later.');
         }
         const { readable, writable } = new TransformStream();
-        // Stream unchanged so existing summary parsing and progress behavior remain intact.
-        ctx.waitUntil(response.body.pipeTo(writable).catch(() => { controller.abort(); }).finally(async () => {
-          clearTimeout(timeout); await release();
-        }));
+        // Hold EOF until the durable lease is released. The extension starts its
+        // next phase immediately at EOF; releasing in pipeTo().finally() races it.
+        // Keep backpressure and propagate cancellation to the upstream request.
+        const transfer = (async () => {
+          try {
+            await response.body.pipeTo(writable, { preventClose: true, preventAbort: true });
+            await release();
+            await writable.close();
+          } catch (error) {
+            controller.abort();
+            // Cancellation also needs cleanup after the client has disconnected.
+            // A failed release gets one retry; the lease expiry remains a fallback.
+            await release().catch(() => {});
+            await writable.abort(error).catch(() => {});
+          } finally { clearTimeout(timeout); }
+        })();
+        ctx.waitUntil(transfer);
         streaming = true;
         return withHeaders(new Response(readable, { headers: { 'Content-Type': 'text/event-stream; charset=utf-8' } }));
       } finally {
